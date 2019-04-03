@@ -6,6 +6,7 @@ Created on Sat Mar 30 23:24:19 2019
 """
 
 import cv2
+import numpy as np
 import feature_matching as fm
 
 ##read images
@@ -14,12 +15,12 @@ import feature_matching as fm
 #f2 = "images/translation/yosemite2.jpg"
 
 ##illumination
-f1 = "images/illuminatoin/img1.png"
-f2 = "images/illuminatoin/img3.png"
+#f1 = "images/illuminatoin/img1.png"
+#f2 = "images/illuminatoin/img3.png"
 
 ##perspective
-#f1 = "images/prespective/img1.png"
-#f2 = "images/prespective/img2.png"
+f1 = "images/prespective/img2.png"
+f2 = "images/prespective/img4.png"
 
 f1 = cv2.imread(f1)
 f2 = cv2.imread(f2)
@@ -39,7 +40,7 @@ des1 = fm.points_descriptor(f1,p1,ori1)
 des2 = fm.points_descriptor(f2,p2,ori2)
 
 ##matching via ratio test both ways
-mtc= fm.feature_match(des1,des2,ratio=0.75)
+mtc= fm.feature_match(des1,des2,ratio=0.8)
 
 ##we will make keypoint and dmatch lists to draw matches, 
 #and visualize our matching by opencv
@@ -53,4 +54,18 @@ draw_params = dict(matchColor = (0,255,0),
                    #matchesMask = matchesMask,
                    flags = 0)
 matching = cv2.drawMatches(f1,kp1,f2,kp2,matches, None,**draw_params)
-cv2.imwrite("matching.png", matching)
+cv2.imwrite("matching.jpeg", matching)
+
+##image alignment
+points1 = np.zeros((len(matches), 2), dtype=np.float32)
+points2 = np.zeros((len(matches), 2), dtype=np.float32)
+for i, match in enumerate(matches):
+    points1[i, :] = kp1[match.queryIdx].pt
+    points2[i, :] = kp2[match.trainIdx].pt
+
+##RANSAC for alignment
+h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
+
+hi, wi, c = f2.shape
+f1al = cv2.warpPerspective(f1, h, (wi, hi))
+cv2.imwrite("alignment.jpeg", f1al)
