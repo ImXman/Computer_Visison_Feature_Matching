@@ -11,16 +11,16 @@ import feature_matching as fm
 
 ##read images
 ##translation
-#f1 = "images/translation/yosemite1.jpg"
-#f2 = "images/translation/yosemite2.jpg"
+f1 = "images/translation/yosemite1.jpg"
+f2 = "images/translation/yosemite2.jpg"
 
 ##illumination
 #f1 = "images/illuminatoin/img1.png"
 #f2 = "images/illuminatoin/img3.png"
 
 ##perspective
-f1 = "images/prespective/img2.png"
-f2 = "images/prespective/img4.png"
+#f1 = "images/prespective/img2.png"
+#f2 = "images/prespective/img4.png"
 
 f1 = cv2.imread(f1)
 f2 = cv2.imread(f2)
@@ -40,7 +40,7 @@ des1 = fm.points_descriptor(f1,p1,ori1)
 des2 = fm.points_descriptor(f2,p2,ori2)
 
 ##matching via ratio test both ways
-mtc= fm.feature_match(des1,des2,ratio=0.8)
+mtc= fm.feature_match(des1,des2,ratio=0.25)
 
 ##we will make keypoint and dmatch lists to draw matches, 
 #and visualize our matching by opencv
@@ -64,8 +64,11 @@ for i, match in enumerate(matches):
     points2[i, :] = kp2[match.trainIdx].pt
 
 ##RANSAC for alignment
-h, mask = cv2.findHomography(points1, points2, cv2.RANSAC)
+h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
 
-hi, wi, c = f2.shape
-f1al = cv2.warpPerspective(f1, h, (wi, hi))
-cv2.imwrite("alignment.jpeg", f1al)
+stitch = cv2.warpPerspective(f2, h, (f1.shape[1] + f2.shape[1], f1.shape[0]))
+cv2.imwrite("alignment.jpeg", stitch)
+
+##stitch images
+stitch[0:f2.shape[0], 0:f2.shape[1],:] = f1
+cv2.imwrite("stitched.jpeg", stitch)

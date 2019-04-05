@@ -1,13 +1,19 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sat Mar 16 11:28:51 2019
+Created on Fri Apr  5 16:48:35 2019
 
 @author: Yang Xu
 """
 
+import sys
 import cv2
 import numpy as np
 import scipy.ndimage.filters as filters
+
+frame1_path=str(sys.argv[1])
+frame2_path=str(sys.argv[2])
+descriptor=int(sys.argv[3])
+ratio =float(sys.argv[4])
 
 ##harris corner detection to find points
 def find_points(image,block_size=5,max_block=9,k=0.05):
@@ -161,3 +167,61 @@ def feature_match(des1,des2,ratio=0.5):
     
 ###############################################################################
 
+def main():
+    
+    f1 = cv2.imread(frame1_path)
+    f2 = cv2.imread(frame2_path)
+
+    ##find key points
+    p1= find_points(f1,block_size=5,max_block=9,k=0.05)
+    p2= find_points(f2,block_size=5,max_block=9,k=0.05)
+    
+    if descriptor==0:
+        
+        ##descriptor by pixel intensity
+        des1 = points_intensity(f1,p1)
+        des2 = points_intensity(f2,p2)
+    else:    
+        ##descriptor by orientation
+        ori1 = ori_points(f1,p1)
+        ori2 = ori_points(f2,p2)
+        des1 = points_descriptor(f1,p1,ori1)
+        des2 = points_descriptor(f2,p2,ori2)
+    
+    ##matching via ratio test both ways
+    mtc= feature_match(des1,des2,ratio=ratio)
+
+    ##we will make keypoint and dmatch lists to draw matches, 
+    #and visualize our matching by opencv
+    kp1 = [cv2.KeyPoint(p1[i,1], p1[i,0],5) for i in range(p1.shape[0])]
+    kp2 = [cv2.KeyPoint(p2[i,1], p2[i,0],5) for i in range(p2.shape[0])]
+    matches = [cv2.DMatch(i[0],i[1],1) for i in mtc]
+    
+    #Draw matches.
+    draw_params = dict(matchColor = (0,255,0),
+                       singlePointColor = (255,0,0),
+                       #matchesMask = matchesMask,
+                       flags = 0)
+    matching = cv2.drawMatches(f1,kp1,f2,kp2,matches, None,**draw_params)
+    cv2.imwrite("matching.jpeg", matching)
+
+    ##image alignment
+    points1 = np.zeros((len(matches), 2), dtype=np.float32)
+    points2 = np.zeros((len(matches), 2), dtype=np.float32)
+    for i, match in enumerate(matches):
+        points1[i, :] = kp1[match.queryIdx].pt
+        points2[i, :] = kp2[match.trainIdx].pt
+
+    ##RANSAC for alignment
+    h, mask = cv2.findHomography(points2, points1, cv2.RANSAC)
+    
+    stitch = cv2.warpPerspective(f2, h, (f1.shape[1] + f2.shape[1], f1.shape[0]))
+    cv2.imwrite("alignment.jpeg", stitch)
+    
+    ##stitch images
+    ##cautious: it doesn't work for perspective case
+    stitch[0:f2.shape[0], 0:f2.shape[1],:] = f1
+    cv2.imwrite("stitched.jpeg", stitch)
+
+if __name__ == '__main__':
+    main()
